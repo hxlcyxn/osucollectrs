@@ -56,7 +56,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let collection: CollectorResponse = collector_response.json().await?;
 
-    println!("#  {}", &collection.name);
+    println!("# {}", &collection.name);
     println!("{}", &collection.description);
     println!("{}", &collection.beatmapsets[0].id);
 
