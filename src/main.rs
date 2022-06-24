@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use serde::{Deserialize, Serialize};
 
 const COLLECTOR_BASE_URL: &str = "https://osucollector.com/api/collections";
@@ -22,6 +24,34 @@ struct Beatmap {
 
 fn print_usage() {
     println!("usage: osucollectrs [id]")
+}
+
+async fn download_to_directory(url: String, directory: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let mirror_response = reqwest::get(&url).await?;
+    if !mirror_response.status().is_success() {
+        println!("Could not get map id! Are you sure it is correct?");
+        print_usage();
+        std::process::exit(1)
+    }
+    let content_disposition = mirror_response
+        .headers()
+        .get("content-disposition")
+        .unwrap()
+        .to_str()
+        .unwrap();
+    // extract FILENAME from `attachment; filename="FILENAME"`
+    let filename = &content_disposition[22..content_disposition.len() - 1]
+        .trim()
+        .to_owned();
+    println!("Downloading file: {}", filename);
+    let beatmap_bytes = mirror_response.bytes().await?;
+
+    if !directory.exists() {
+        std::fs::create_dir(directory)?;
+    }
+    std::fs::write(directory.join(filename), beatmap_bytes)?;
+    println!("{:?}", directory);
+    Ok(())
 }
 
 #[tokio::main]
@@ -58,28 +88,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("# {}", &collection.name);
     println!("{}", &collection.description);
-    println!("{}", &collection.beatmapsets[0].id);
 
-    let mirror_response = reqwest::get(&format!(
-        "{}/{}",
-        MIRROR_BASE_URL, collection.beatmapsets[0].id
-    ))
-    .await?;
-    if !mirror_response.status().is_success() {
-        println!("Could not get map id! Are you sure it is correct?");
-        print_usage();
-        std::process::exit(1)
+    for beatmapset in &collection.beatmapsets {
+        println!("{}", beatmapset.id);
+        let mirror_url = &format!("{}/{}", MIRROR_BASE_URL, beatmapset.id);
+        download_to_directory(mirror_url.to_string(), &Path::new("maps")).await?;
     }
-
-    let re = regex::Regex::new(r#"filename="(.+)""#).unwrap();
-    let content_disposition = mirror_response
-        .headers()
-        .get("content-disposition")
-        .unwrap()
-        .to_str()
-        .unwrap();
-    println!("{:?}", re.find(content_disposition));
-    let beatmap_bytes = mirror_response.bytes().await?;
 
     Ok(())
 }
