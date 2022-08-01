@@ -32,20 +32,20 @@ pub enum Mirror {
 impl Mirror {
     fn base_url(&self) -> Url {
         match self {
-            Mirror::Chimu => Url::parse("https://api.chimu.moe/v1/").unwrap(),
-            Mirror::Kitsu => Url::parse("https://kitsu.moe/api/").unwrap(),
+            Self::Chimu => Url::parse("https://api.chimu.moe/v1/").unwrap(),
+            Self::Kitsu => Url::parse("https://kitsu.moe/api/").unwrap(),
         }
     }
     fn dl_url(&self) -> Url {
         match self {
-            Mirror::Chimu => self.base_url().join("download/").unwrap(),
-            Mirror::Kitsu => self.base_url().join("d/").unwrap(),
+            Self::Chimu => self.base_url().join("download/").unwrap(),
+            Self::Kitsu => self.base_url().join("d/").unwrap(),
         }
     }
     fn search_url(&self) -> Url {
         match self {
-            Mirror::Chimu => self.base_url().join("search/").unwrap(),
-            Mirror::Kitsu => self.base_url().join("search/").unwrap(),
+            Self::Chimu => self.base_url().join("search/").unwrap(),
+            Self::Kitsu => self.base_url().join("search/").unwrap(),
         }
     }
 }
@@ -86,8 +86,7 @@ impl OsuCollectrs {
             .headers()
             .get("content-disposition")
             .unwrap()
-            .to_str()
-            .unwrap();
+            .to_str()?;
 
         // Expected format of content-disposition: `attachment; filename="FILENAME"`.
         let filename = &content_disposition[22..content_disposition.len() - 1]
@@ -95,7 +94,10 @@ impl OsuCollectrs {
             .to_owned();
 
         let beatmap_bytes = resp.bytes().await?;
-        std::fs::write(self.dl_path.join(filename), beatmap_bytes)?;
+        if Path::exists(&self.dl_path.join(filename)) {
+            tokio::fs::remove_file(&self.dl_path.join(filename)).await?;
+        }
+        tokio::fs::write(self.dl_path.join(filename), beatmap_bytes).await?;
         Ok(())
     }
 

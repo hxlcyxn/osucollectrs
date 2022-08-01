@@ -20,7 +20,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let client = reqwest::Client::new();
     let collectr = OsuCollectrs::new(client, Mirror::Chimu);
 
-    if let Err(_) = collectr.run(collector_id).await {
+    if collectr.run(collector_id).await.is_err() {
         println!("Are you sure that the id is correct");
         print_usage();
         std::process::exit(1)
